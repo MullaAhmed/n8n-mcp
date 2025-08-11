@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754882540425,
+  "lastUpdate": 1754883042280,
   "repoUrl": "https://github.com/MullaAhmed/n8n-mcp",
   "entries": {
     "n8n-mcp Benchmarks": [
@@ -156,6 +156,58 @@ window.BENCHMARK_DATA = {
             "unit": "ms",
             "range": 0.3889,
             "extra": "15067 ops/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "67974888+MullaAhmed@users.noreply.github.com",
+            "name": "Ahmed Mulla",
+            "username": "MullaAhmed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e8891f858a343548b85fd2275ebef30e5bf7a16",
+          "message": "Updated package-lock.json",
+          "timestamp": "2025-08-11T08:59:09+05:30",
+          "tree_id": "a96069bfaed47da2afd7c65ac32e99c460a17c53",
+          "url": "https://github.com/MullaAhmed/n8n-mcp/commit/7e8891f858a343548b85fd2275ebef30e5bf7a16"
+        },
+        "date": 1754883041932,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "sample - array sorting - small",
+            "value": 0.0188,
+            "unit": "ms",
+            "range": 0.28159999999999996,
+            "extra": "53264 ops/sec"
+          },
+          {
+            "name": "sample - array sorting - large",
+            "value": 3.1629,
+            "unit": "ms",
+            "range": 0.4783999999999997,
+            "extra": "316 ops/sec"
+          },
+          {
+            "name": "sample - string concatenation",
+            "value": 0.0049,
+            "unit": "ms",
+            "range": 0.28450000000000003,
+            "extra": "205733 ops/sec"
+          },
+          {
+            "name": "sample - object creation",
+            "value": 0.0665,
+            "unit": "ms",
+            "range": 0.3202,
+            "extra": "15026 ops/sec"
           }
         ]
       }
