@@ -1,7 +1,5 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { logger } from './logger';
-import { execSync } from 'child_process';
+import axios from 'axios';
 
 // Enhanced documentation structure with rich content
 export interface EnhancedNodeDocumentation {
@@ -60,69 +58,46 @@ export interface DocumentationMetadata {
 }
 
 export class EnhancedDocumentationFetcher {
-  private docsPath: string;
-  private docsRepoUrl = 'https://github.com/n8n-io/n8n-docs.git';
-  private cloned = false;
+  private baseUrl = 'https://raw.githubusercontent.com/n8n-io/n8n-docs/main';
+  private httpClient: typeof axios;
 
-  constructor(docsPath?: string) {
-    this.docsPath = docsPath || path.join(__dirname, '../../temp', 'n8n-docs');
-  }
-
-  /**
-   * Clone or update the n8n-docs repository
-   */
-  async ensureDocsRepository(): Promise<void> {
-    try {
-      const exists = await fs.access(this.docsPath).then(() => true).catch(() => false);
-      
-      if (!exists) {
-        logger.info('Cloning n8n-docs repository...');
-        await fs.mkdir(path.dirname(this.docsPath), { recursive: true });
-        execSync(`git clone --depth 1 ${this.docsRepoUrl} ${this.docsPath}`, {
-          stdio: 'pipe'
-        });
-        logger.info('n8n-docs repository cloned successfully');
-      } else {
-        logger.info('Updating n8n-docs repository...');
-        execSync('git pull --ff-only', {
-          cwd: this.docsPath,
-          stdio: 'pipe'
-        });
-        logger.info('n8n-docs repository updated');
+  constructor() {
+    this.httpClient = axios.create({
+      timeout: 10000, // 10 second timeout
+      headers: {
+        'User-Agent': 'n8n-mcp-documentation-fetcher'
       }
-      
-      this.cloned = true;
-    } catch (error) {
-      logger.error('Failed to clone/update n8n-docs repository:', error);
-      throw error;
-    }
+    });
   }
 
   /**
    * Get enhanced documentation for a specific node
    */
   async getEnhancedNodeDocumentation(nodeType: string): Promise<EnhancedNodeDocumentation | null> {
-    if (!this.cloned) {
-      await this.ensureDocsRepository();
-    }
-
     try {
       const nodeName = this.extractNodeName(nodeType);
       
-      // Common documentation paths to check
+      // Common documentation paths to check (now as URL segments)
       const possiblePaths = [
-        path.join(this.docsPath, 'docs', 'integrations', 'builtin', 'app-nodes', `${nodeType}.md`),
-        path.join(this.docsPath, 'docs', 'integrations', 'builtin', 'core-nodes', `${nodeType}.md`),
-        path.join(this.docsPath, 'docs', 'integrations', 'builtin', 'trigger-nodes', `${nodeType}.md`),
-        path.join(this.docsPath, 'docs', 'integrations', 'builtin', 'core-nodes', `${nodeName}.md`),
-        path.join(this.docsPath, 'docs', 'integrations', 'builtin', 'app-nodes', `${nodeName}.md`),
-        path.join(this.docsPath, 'docs', 'integrations', 'builtin', 'trigger-nodes', `${nodeName}.md`),
+        `docs/integrations/builtin/app-nodes/${nodeType}.md`,
+        `docs/integrations/builtin/core-nodes/${nodeType}.md`,
+        `docs/integrations/builtin/trigger-nodes/${nodeType}.md`,
+        `docs/integrations/builtin/core-nodes/${nodeName}.md`,
+        `docs/integrations/builtin/app-nodes/${nodeName}.md`,
+        `docs/integrations/builtin/trigger-nodes/${nodeName}.md`,
+        // Additional common patterns
+        `docs/integrations/builtin/app-nodes/n8n-nodes-base.${nodeName}.md`,
+        `docs/integrations/builtin/core-nodes/n8n-nodes-base.${nodeName}.md`,
+        `docs/integrations/builtin/trigger-nodes/n8n-nodes-base.${nodeName}.md`,
       ];
 
       for (const docPath of possiblePaths) {
         try {
-          const content = await fs.readFile(docPath, 'utf-8');
-          logger.debug(`Checking doc path: ${docPath}`);
+          const url = `${this.baseUrl}/${docPath}`;
+          logger.debug(`Checking doc URL: ${url}`);
+          
+          const response = await this.httpClient.get(url);
+          const content = response.data;
           
           // Skip credential documentation files
           if (this.isCredentialDoc(docPath, content)) {
@@ -130,24 +105,24 @@ export class EnhancedDocumentationFetcher {
             continue;
           }
           
-          logger.info(`Found documentation for ${nodeType} at: ${docPath}`);
-          return this.parseEnhancedDocumentation(content, docPath);
+          logger.info(`Found documentation for ${nodeType} at: ${url}`);
+          return this.parseEnhancedDocumentation(content, url);
         } catch (error) {
-          // File doesn't exist, continue
+          // File doesn't exist or network error, continue to next path
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            logger.debug(`Documentation not found at: ${docPath}`);
+          } else {
+            logger.debug(`Error fetching ${docPath}:`, error instanceof Error ? error.message : String(error));
+          }
           continue;
         }
       }
 
-      // If no exact match, try to find by searching
-      logger.debug(`No exact match found, searching for ${nodeType}...`);
-      const foundPath = await this.searchForNodeDoc(nodeType);
-      if (foundPath) {
-        logger.info(`Found documentation via search at: ${foundPath}`);
-        const content = await fs.readFile(foundPath, 'utf-8');
-        
-        if (!this.isCredentialDoc(foundPath, content)) {
-          return this.parseEnhancedDocumentation(content, foundPath);
-        }
+      // If no exact match, try alternative naming patterns
+      logger.debug(`No exact match found, trying alternative patterns for ${nodeType}...`);
+      const alternativeDoc = await this.tryAlternativePatterns(nodeType, nodeName);
+      if (alternativeDoc) {
+        return alternativeDoc;
       }
 
       logger.warn(`No documentation found for node: ${nodeType}`);
@@ -159,12 +134,50 @@ export class EnhancedDocumentationFetcher {
   }
 
   /**
+   * Try alternative naming patterns for documentation
+   */
+  private async tryAlternativePatterns(nodeType: string, nodeName: string): Promise<EnhancedNodeDocumentation | null> {
+    const alternativePatterns = [
+      // Try with different case variations
+      `docs/integrations/builtin/app-nodes/${nodeName.toLowerCase()}.md`,
+      `docs/integrations/builtin/core-nodes/${nodeName.toLowerCase()}.md`,
+      `docs/integrations/builtin/trigger-nodes/${nodeName.toLowerCase()}.md`,
+      // Try with directory structure (some nodes have their own directories)
+      `docs/integrations/builtin/app-nodes/${nodeType}/index.md`,
+      `docs/integrations/builtin/core-nodes/${nodeType}/index.md`,
+      `docs/integrations/builtin/app-nodes/${nodeName}/index.md`,
+      `docs/integrations/builtin/core-nodes/${nodeName}/index.md`,
+      // Try common variations
+      `docs/integrations/builtin/app-nodes/${nodeName.replace(/([A-Z])/g, '-$1').toLowerCase().substring(1)}.md`,
+      `docs/integrations/builtin/core-nodes/${nodeName.replace(/([A-Z])/g, '-$1').toLowerCase().substring(1)}.md`,
+    ];
+
+    for (const pattern of alternativePatterns) {
+      try {
+        const url = `${this.baseUrl}/${pattern}`;
+        const response = await this.httpClient.get(url);
+        const content = response.data;
+        
+        if (!this.isCredentialDoc(pattern, content)) {
+          logger.info(`Found documentation via alternative pattern at: ${url}`);
+          return this.parseEnhancedDocumentation(content, url);
+        }
+      } catch (error) {
+        // Continue to next pattern
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Parse markdown content into enhanced documentation structure
    */
-  private parseEnhancedDocumentation(markdown: string, filePath: string): EnhancedNodeDocumentation {
+  private parseEnhancedDocumentation(markdown: string, url: string): EnhancedNodeDocumentation {
     const doc: EnhancedNodeDocumentation = {
       markdown,
-      url: this.generateDocUrl(filePath),
+      url,
     };
 
     // Extract frontmatter metadata
@@ -224,9 +237,9 @@ export class EnhancedDocumentationFetcher {
           frontmatter[key.trim()] = value
             .slice(1, -1)
             .split(',')
-            .map(v => v.trim());
+            .map(v => v.trim().replace(/^['"]|['"]$/g, ''));
         } else {
-          frontmatter[key.trim()] = value;
+          frontmatter[key.trim()] = value.replace(/^['"]|['"]$/g, '');
         }
       }
     }
@@ -559,63 +572,10 @@ export class EnhancedDocumentationFetcher {
   }
 
   /**
-   * Search for node documentation file
-   */
-  private async searchForNodeDoc(nodeType: string): Promise<string | null> {
-    try {
-      // First try exact match with nodeType
-      let result = execSync(
-        `find ${this.docsPath}/docs/integrations/builtin -name "${nodeType}.md" -type f | grep -v credentials | head -1`,
-        { encoding: 'utf-8', stdio: 'pipe' }
-      ).trim();
-      
-      if (result) return result;
-      
-      // Try lowercase nodeType
-      const lowerNodeType = nodeType.toLowerCase();
-      result = execSync(
-        `find ${this.docsPath}/docs/integrations/builtin -name "${lowerNodeType}.md" -type f | grep -v credentials | head -1`,
-        { encoding: 'utf-8', stdio: 'pipe' }
-      ).trim();
-      
-      if (result) return result;
-      
-      // Try node name pattern but exclude trigger nodes
-      const nodeName = this.extractNodeName(nodeType);
-      result = execSync(
-        `find ${this.docsPath}/docs/integrations/builtin -name "*${nodeName}.md" -type f | grep -v credentials | grep -v trigger | head -1`,
-        { encoding: 'utf-8', stdio: 'pipe' }
-      ).trim();
-      
-      return result || null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * Generate documentation URL from file path
-   */
-  private generateDocUrl(filePath: string): string {
-    const relativePath = path.relative(this.docsPath, filePath);
-    const urlPath = relativePath
-      .replace(/^docs\//, '')
-      .replace(/\.md$/, '')
-      .replace(/\\/g, '/');
-    
-    return `https://docs.n8n.io/${urlPath}`;
-  }
-
-  /**
-   * Clean up cloned repository
+   * Clean up resources (no-op now since we don't clone repositories)
    */
   async cleanup(): Promise<void> {
-    try {
-      await fs.rm(this.docsPath, { recursive: true, force: true });
-      this.cloned = false;
-      logger.info('Cleaned up documentation repository');
-    } catch (error) {
-      logger.error('Failed to cleanup docs repository:', error);
-    }
+    // No cleanup needed for HTTP-based fetching
+    logger.debug('Documentation fetcher cleanup completed (no resources to clean)');
   }
 }
