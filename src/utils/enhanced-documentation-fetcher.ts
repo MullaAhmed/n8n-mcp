@@ -65,7 +65,7 @@ export class EnhancedDocumentationFetcher {
   private cloned = false;
 
   constructor(docsPath?: string) {
-    this.docsPath = docsPath || path.join(__dirname, '../../temp', 'n8n-docs');
+    this.docsPath = docsPath || path.join(__dirname, '../../n8n-docs');
   }
 
   /**

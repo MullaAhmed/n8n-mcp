@@ -9,6 +9,7 @@ import { NodeParser } from '../parsers/node-parser';
 import { DocsMapper } from '../mappers/docs-mapper';
 import { NodeRepository } from '../database/node-repository';
 import { TemplateSanitizer } from '../utils/template-sanitizer';
+import { EnhancedDocumentationFetcher } from '../utils/enhanced-documentation-fetcher';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -21,6 +22,7 @@ async function rebuild() {
   const parser = new NodeParser();
   const mapper = new DocsMapper();
   const repository = new NodeRepository(db);
+  const docsFetcher = new EnhancedDocumentationFetcher();
   
   // Initialize database
   const schema = fs.readFileSync(path.join(__dirname, '../../src/database/schema.sql'), 'utf8');
@@ -29,6 +31,10 @@ async function rebuild() {
   // Clear existing data
   db.exec('DELETE FROM nodes');
   console.log('🗑️  Cleared existing data\n');
+
+  // Ensure documentation repository is available
+  await docsFetcher.ensureDocsRepository();
+  console.log('Fetching documentation from repository...\n');
   
   // Load all nodes
   const nodes = await loader.loadAllNodes();
@@ -60,6 +66,7 @@ async function rebuild() {
       // Get documentation
       const docs = await mapper.fetchDocumentation(parsed.nodeType);
       parsed.documentation = docs || undefined;
+      
       
       // Save to database
       repository.saveNode(parsed);

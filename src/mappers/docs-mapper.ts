@@ -44,6 +44,7 @@ export class DocsMapper {
       `docs/integrations/builtin/trigger-nodes/n8n-nodes-base.${nodeName}/index.md`,
       `docs/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.${nodeName}/index.md`,
       `docs/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.${nodeName}/index.md`
+      
     ];
     
     // Try each path

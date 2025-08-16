@@ -126,3 +126,5 @@ n8n-mcp-wrapper.sh
 
 # Package tarballs
 *.tgz
+
+data/nodes.db
