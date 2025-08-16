@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755379552530,
+  "lastUpdate": 1755379623754,
   "repoUrl": "https://github.com/MullaAhmed/n8n-mcp",
   "entries": {
     "n8n-mcp Benchmarks": [
@@ -416,6 +416,58 @@ window.BENCHMARK_DATA = {
             "unit": "ms",
             "range": 0.3536,
             "extra": "12122 ops/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "67974888+MullaAhmed@users.noreply.github.com",
+            "name": "Ahmed Mulla",
+            "username": "MullaAhmed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "acc7fdeecd0925fd90e660da3e4bc1cd2d888ff2",
+          "message": "Updated nodes.db",
+          "timestamp": "2025-08-17T02:55:21+05:30",
+          "tree_id": "5fe3135459d4f3217094c21897173773bac0b80c",
+          "url": "https://github.com/MullaAhmed/n8n-mcp/commit/acc7fdeecd0925fd90e660da3e4bc1cd2d888ff2"
+        },
+        "date": 1755379623403,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "sample - array sorting - small",
+            "value": 0.0191,
+            "unit": "ms",
+            "range": 0.3964,
+            "extra": "52348 ops/sec"
+          },
+          {
+            "name": "sample - array sorting - large",
+            "value": 3.1607,
+            "unit": "ms",
+            "range": 0.5322,
+            "extra": "316 ops/sec"
+          },
+          {
+            "name": "sample - string concatenation",
+            "value": 0.0047,
+            "unit": "ms",
+            "range": 0.2627,
+            "extra": "211133 ops/sec"
+          },
+          {
+            "name": "sample - object creation",
+            "value": 0.0672,
+            "unit": "ms",
+            "range": 0.4587,
+            "extra": "14876 ops/sec"
           }
         ]
       }
